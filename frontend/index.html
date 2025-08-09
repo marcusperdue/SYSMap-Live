@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>SysMap Live 3D</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://unpkg.com/three@0.161.0/build/three.min.js"></script>
+  <script src="https://unpkg.com/3d-force-graph"></script>
+  <style>
+    :root{
+      --bg:#0f1117; --panel:#151924; --line:#262b36; --fg:#e8eaf0; --muted:#9aa4b2;
+      --brand:#7aa2ff; --btn:#1e2433; --btn-hover:#242b3f;
+    }
+    :root.light{
+      --bg:#f7f8fb; --panel:#ffffff; --line:#e7e9ef; --fg:#0b1220; --muted:#5c6477;
+      --brand:#3a6fff; --btn:#f1f3f8; --btn-hover:#e9ecf6;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%;margin:0;background:var(--bg);color:var(--fg);font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+
+    .topbar{
+      display:grid; grid-template-columns: 160px 1fr auto;
+      gap:12px; align-items:center; padding:10px 14px;
+      border-bottom:1px solid var(--line); background:var(--panel); position:sticky; top:0; z-index:3;
+    }
+    .brand{font-weight:700;color:var(--brand)}
+    .controls{display:flex; gap:8px; align-items:center; flex-wrap:wrap}
+    .controls input[type="search"]{
+      width:360px; max-width:45vw; padding:8px 10px; border-radius:10px; border:1px solid var(--line); background:var(--bg); color:var(--fg);
+    }
+    button{padding:8px 12px; border-radius:10px; border:1px solid var(--line); background:var(--btn); color:var(--fg); cursor:pointer}
+    button:hover{background:var(--btn-hover)}
+    .ghost{background:transparent}
+
+    .toggle{display:flex; gap:6px; align-items:center; color:var(--muted); font-size:12px}
+    .status{color:var(--muted); font-size:12px}
+
+    .layout{
+      display:grid; grid-template-columns: 360px 1fr;
+      height:calc(100% - 56px);
+    }
+    .sidebar{
+      border-right:1px solid var(--line); padding:12px; background:var(--panel); overflow:auto;
+    }
+    .section{margin-bottom:16px}
+    .section-head{display:flex; justify-content:space-between; align-items:center}
+    .panel{background:var(--bg); border:1px solid var(--line); border-radius:12px; padding:10px; max-height:52vh; overflow:auto}
+
+    .legend{list-style:none; padding:0; margin:8px 0 0; display:grid; grid-template-columns: repeat(2, minmax(120px,1fr)); gap:8px}
+    .dot{display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:8px; vertical-align:middle}
+    .dot.host{background:#6b5b95}
+    .dot.cpu{background:#ff8c42}
+    .dot.ram{background:#58a6ff}
+    .dot.disk{background:#8fd694}
+    .dot.process{background:#c792ea}
+    .dot.remote{background:#ff6b6b}
+
+    #graphWrap{
+      position:relative; display:flex; align-items:center; justify-content:center;
+    }
+    #graph{
+      height:100%; width:100%;
+    }
+    .overlay{
+      position:absolute; inset:0; display:grid; place-items:center;
+      background:rgba(0,0,0,0.35); color:#fff; font-weight:600; letter-spacing:.3px;
+    }
+    .toast{
+      position:absolute; right:12px; top:12px; background:#1a1f2c; color:#fff;
+      border:1px solid #2a3042; border-radius:10px; padding:8px 12px; font-size:12px; opacity:.95;
+    }
+    .hidden{display:none}
+
+    /* Responsive layout */
+    @media (max-width: 900px) {
+      .layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto 1fr;
+      }
+      .sidebar {
+        order: 2;
+        border-right: none;
+        border-top: 1px solid var(--line);
+        height: 250px;
+      }
+      #graphWrap {
+        order: 1;
+        height: calc(100% - 250px);
+      }
+    }
+    @media (max-width: 600px) {
+      .controls input[type="search"] {
+        width: 100%;
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">SysMap Live</div>
+    <div class="controls">
+      <input id="search" type="search" placeholder="Search: process, PID, IP, mount…" />
+      <label class="toggle">
+        <input id="autorefresh" type="checkbox" checked/>
+        <span>Auto-refresh</span>
+      </label>
+      <button id="btnCenter" title="Center view">Center</button>
+      <button id="btnTheme" title="Toggle theme">Theme</button>
+    </div>
+    <div id="status" class="status">loading…</div>
+  </header>
+
+  <main class="layout">
+    <aside id="sidebar" class="sidebar">
+         <div id="gutter" class="gutter" aria-hidden="true"></div> 
+      <div class="section">
+        <div class="section-head">
+          <h3>Details</h3>
+          <button id="btnClear" class="ghost">Clear</button>
+        </div>
+        <pre id="details" class="panel"><em>Select a node…</em></pre>
+      </div>
+
+      <div class="section">
+        <h3>Legend</h3>
+        <ul class="legend">
+          <li><span class="dot host"></span> Host</li>
+          <li><span class="dot cpu"></span> CPU</li>
+          <li><span class="dot ram"></span> RAM</li>
+          <li><span class="dot disk"></span> Disk</li>
+          <li><span class="dot process"></span> Process</li>
+          <li><span class="dot remote"></span> Remote IP</li>
+        </ul>
+      </div>
+    </aside>
+
+    <section id="graphWrap">
+      <div id="toast" class="toast hidden"></div>
+      <div id="graph"></div>
+      <div id="overlay" class="overlay hidden"></div>
+    </section>
+  </main>
+
+  <script src="app.js?v=6"></script>
+</body>
+</html>

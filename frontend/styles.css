@@ -1,0 +1,209 @@
+/* ================== Theme ================== */
+:root{
+  --bg:#0f1117; --panel:#141824; --line:#262b36; --fg:#e8eaf0; --muted:#9aa4b2;
+  --brand:#7aa2ff; --btn:#1c2233; --btn-hover:#242b3f;
+
+  --topbar-h: clamp(48px, 6svh, 64px);
+  --sidebar-min: 220px;
+  --sidebar-max: 560px;
+  --sidebar-w: 360px; /* live width; JS can update */
+  --radius: 12px;
+  --shadow: 0 6px 14px rgba(0,0,0,.22);
+  --fs: clamp(13px, 1.05vw, 15px);
+}
+:root.light{
+  --bg:#f7f8fb; --panel:#ffffff; --line:#e7e9ef; --fg:#0b1220; --muted:#5c6477;
+  --brand:#3a6fff; --btn:#f1f3f8; --btn-hover:#e9ecf6;
+  --shadow: 0 6px 14px rgba(0,0,0,.08);
+}
+
+/* ================== Base / Reset ================== */
+*{ box-sizing:border-box; min-width:0; }
+html,body{
+  height:100%;
+  margin:0;
+  background:var(--bg);
+  color:var(--fg);
+  font: var(--fs)/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+img,svg,canvas,video{ display:block; max-width:100%; }
+button,input,select,textarea{ font:inherit; color:inherit; }
+:focus{ outline:none; }
+:focus-visible{ outline:2px solid var(--brand); outline-offset:2px; border-radius:8px; }
+
+/* Scrollbars (WebKit) */
+*::-webkit-scrollbar{ width:10px; height:10px; }
+*::-webkit-scrollbar-thumb{ background:var(--line); border-radius:10px; }
+*::-webkit-scrollbar-track{ background:transparent; }
+
+.hidden{ display:none !important; }
+
+/* ================== Topbar ================== */
+.topbar{
+  position:sticky; top:0; z-index:10;
+  display:grid; grid-template-columns: 1fr auto; gap:10px;
+  align-items:center; padding:8px 12px;
+  height:var(--topbar-h);
+  background:var(--panel); border-bottom:1px solid var(--line);
+  box-shadow: 0 1px 0 rgba(255,255,255,.02);
+}
+.brand{ font-weight:700; color:var(--brand); letter-spacing:.2px; white-space:nowrap; }
+.controls{ display:flex; gap:8px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+.controls input[type="search"]{
+  width:min(440px, 52vw);
+  padding:8px 10px; border-radius:10px; border:1px solid var(--line);
+  background:var(--panel); color:var(--fg);
+}
+button{
+  padding:8px 12px; border-radius:10px; border:1px solid var(--line);
+  background:var(--btn); color:var(--fg); cursor:pointer;
+  transition: background .15s ease, border-color .15s ease, transform .02s;
+}
+button:hover{ background:var(--btn-hover); }
+button:active{ transform: translateY(1px); }
+button[disabled]{ opacity:.6; cursor:not-allowed; }
+.toggle,.status{ color:var(--muted); font-size:12px; white-space:nowrap; }
+
+/* ================== Layout (split pane) ================== */
+.layout{
+  height: calc(100dvh - var(--topbar-h));
+  display:grid;
+  grid-template-areas: "sidebar gutter graph";
+  grid-template-columns: clamp(var(--sidebar-min), var(--sidebar-w), var(--sidebar-max)) 8px 1fr;
+  grid-template-rows: 1fr;
+  min-height:0;
+}
+@supports not (height: 100dvh){
+  .layout{ height: calc(100vh - var(--topbar-h)); }
+}
+
+/* Sidebar */
+.sidebar{
+  grid-area: sidebar;
+  overflow:auto;
+  padding:12px;
+  background:var(--panel);
+  border-right:1px solid var(--line);
+  min-width: var(--sidebar-min);
+  max-width: var(--sidebar-max);
+  /* If you didn't add a gutter element, you can enable native resize:
+     resize: horizontal;  */
+}
+.section{ margin-bottom:16px; }
+.section-head{ display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.panel{
+  background:linear-gradient(180deg, color-mix(in oklab, var(--panel) 85%, transparent) 0%, var(--bg) 100%);
+  border:1px solid var(--line); border-radius:var(--radius);
+  padding:10px; max-height:52vh; overflow:auto; box-shadow: var(--shadow);
+}
+.panel > :first-child{ margin-top:0; }
+.panel > :last-child{ margin-bottom:0; }
+
+/* Optional drag handle (only shows if you added <div id="gutter" class="gutter">) */
+.gutter{
+  grid-area: gutter;
+  cursor: col-resize;
+  background:
+    linear-gradient(to right, transparent 0, var(--line) 4px, transparent 8px);
+}
+
+/* Legend */
+.legend{
+  list-style:none; padding:0; margin:8px 0 0;
+  display:grid; grid-template-columns: repeat(2, minmax(120px,1fr)); gap:8px;
+}
+.dot{ display:inline-block; width:12px; height:12px; border-radius:50%; margin-right:8px; vertical-align:middle; }
+.dot.host{background:#6b5b95}
+.dot.cpu{background:#ff8c42}
+.dot.ram{background:#58a6ff}
+.dot.disk{background:#8fd694}
+.dot.process{background:#c792ea}
+.dot.remote{background:#ff6b6b}
+
+/* ================== Graph Area — centered & robust ================== */
+#graphWrap{
+  grid-area: graph;
+  position:relative;
+  min-height: 280px;
+  display:flex; align-items:center; justify-content:center;
+  overflow:hidden;
+  min-inline-size: 0;  /* allow child to shrink */
+  min-block-size: 0;
+}
+#graph{
+  width:100%;
+  height:100%;
+  min-height:0;
+}
+#graph > canvas{
+  width:100% !important;
+  height:100% !important;
+  display:block;
+}
+
+/* Overlay & toast */
+.overlay{
+  position:absolute; inset:0; display:grid; place-items:center;
+  background:rgba(0,0,0,0.35); color:#fff; font-weight:600; letter-spacing:.3px;
+  backdrop-filter: blur(2px);
+}
+.toast{
+  position:absolute; right:12px; top:12px; background:#1a1f2c; color:#fff;
+  border:1px solid #2a3042; border-radius:10px; padding:8px 12px; font-size:12px; opacity:.95;
+  box-shadow: var(--shadow);
+}
+
+/* ================== Details wrapping ================== */
+#details{
+  overflow:auto; max-height: 40vh;
+  white-space: pre-wrap; word-break: break-word; overflow-wrap: anywhere;
+  line-height: 1.45;
+}
+#details code, #details pre{ white-space: pre-wrap; }
+
+/* ================== Responsive ================== */
+@media (max-width: 1140px){
+  :root{ --sidebar-w: 320px; }
+  .controls input[type="search"]{ width:min(360px, 56vw); }
+}
+@media (max-width: 980px){
+  .layout{
+    grid-template-areas:
+      "graph"
+      "sidebar";
+  ; grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  .gutter{ display:none; }
+  .sidebar{
+    border-right:none;
+    border-top:1px solid var(--line);
+    max-height: 52svh;
+  }
+  #graphWrap{ min-height: clamp(320px, 58svh, 82svh); }
+}
+@media (max-width: 720px){
+  .topbar{ grid-template-columns: 1fr; height:auto; padding:8px 10px; }
+  .controls{ justify-content:stretch; }
+  .controls input[type="search"]{ width:100%; max-width:100%; }
+  .toggle,.status{ width:100%; }
+  .panel{ max-height:none; }
+}
+@media (max-width: 480px){
+  button{ padding:7px 10px; }
+  .panel{ padding:8px; border-radius:10px; }
+  .legend{ grid-template-columns: 1fr; }
+}
+
+/* ================== Reduced Motion / Print ================== */
+@media (prefers-reduced-motion: reduce){
+  *{ animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+}
+@media print{
+  .topbar, .overlay, .toast{ display:none !important; }
+  .layout{
+    grid-template-areas: "graph";
+    grid-template-columns: 1fr !important; grid-template-rows: 1fr !important;
+  }
+  body{ background:#fff; color:#000; }
+}
